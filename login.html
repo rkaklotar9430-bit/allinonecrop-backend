@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AllInOneCrop Login</title>
+<style>
+body{font-family:Arial,sans-serif;background:#111;color:#fff;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0}
+.box{background:#1d1d1d;padding:24px;border-radius:10px;width:320px}
+input{width:100%;padding:10px;margin:6px 0 12px;border-radius:6px;border:1px solid #444;background:#222;color:#fff;box-sizing:border-box}
+button{width:100%;padding:10px;border:0;border-radius:6px;background:#7c3aed;color:#fff;font-size:16px;cursor:pointer}
+.msg{margin-top:12px;font-size:14px}
+</style>
+</head>
+<body>
+<div class="box">
+<h2 id="title">Login</h2>
+<input id="name" placeholder="Full Name" style="display:none">
+<input id="email" type="email" placeholder="Email">
+<input id="phone" placeholder="Phone" style="display:none">
+<input id="password" type="password" placeholder="Password">
+<button id="submitBtn">Login</button>
+<p><a href="#" id="toggle">Naya account banayein (Sign up)</a></p>
+<div class="msg" id="msg"></div>
+</div>
+<script>
+const API = 'https://allinonecrop-backend.onrender.com';
+let isSignup = false;
+const $ = id => document.getElementById(id);
+
+function browserName(){
+  const ua = navigator.userAgent;
+  if (ua.includes('Edg')) return 'Edge';
+  if (ua.includes('OPR')) return 'Opera';
+  if (ua.includes('Chrome')) return 'Chrome';
+  if (ua.includes('Firefox')) return 'Firefox';
+  if (ua.includes('Safari')) return 'Safari';
+  return 'Other';
+}
+function deviceType(){
+  const ua = navigator.userAgent;
+  if (/Tablet|iPad/i.test(ua)) return 'Tablet';
+  if (/Mobi|Android|iPhone/i.test(ua)) return 'Mobile';
+  return 'Desktop';
+}
+function show(text, ok){
+  $('msg').style.color = ok ? '#4ade80' : '#f87171';
+  $('msg').textContent = text;
+}
+$('toggle').onclick = e => {
+  e.preventDefault();
+  isSignup = !isSignup;
+  $('name').style.display = isSignup ? 'block' : 'none';
+  $('phone').style.display = isSignup ? 'block' : 'none';
+  $('title').textContent = isSignup ? 'Sign up' : 'Login';
+  $('submitBtn').textContent = isSignup ? 'Account banayein' : 'Login';
+  $('toggle').textContent = isSignup ? 'Pehle se account hai? Login karein' : 'Naya account banayein (Sign up)';
+};
+async function post(path, body){
+  const res = await fetch(API + path, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+  return res.json();
+}
+$('submitBtn').onclick = async () => {
+  const email = $('email').value.trim();
+  const password = $('password').value;
+  if (!email || !password) return show('Email aur password bharein', false);
+  show('Ruko...', true);
+  try {
+    if (isSignup) {
+      const r = await post('/api/signup', {
+        email, password,
+        name: $('name').value.trim(),
+        phone: $('phone').value.trim()
+      });
+      if (!r.ok) return show(r.error || 'Signup fail hua', false);
+    }
+    const l = await post('/api/login', {
+      email, password,
+      browser: browserName(), device: deviceType(), tool: '', pdfCount: 0
+    });
+    if (!l.ok) return show(l.error || 'Login fail hua', false);
+    show(isSignup ? 'Account ban gaya aur login ho gaya!' : 'Login ho gaya!', true);
+  } catch (err) {
+    show('Server se connect nahi ho paya. Thodi der baad try karein.', false);
+  }
+};
+</script>
+</body>
+</html>

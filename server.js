@@ -30,6 +30,12 @@ function hashPassword(password) {
   return salt + ':' + hash;
 }
 
+function verifyPassword(password, stored) {
+  const [salt, hash] = stored.split(':');
+  const check = crypto.scryptSync(password, salt, 64).toString('hex');
+  return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(check, 'hex'));
+}
+
 app.get('/', (req, res) => {
   res.json({ ok: true, message: 'AllInOneCrop backend chal raha hai' });
 });
@@ -60,14 +66,29 @@ app.post('/api/signup', async (req, res) => {
 });
 
 app.post('/api/login', async (req, res) => {
-  const { email, browser, device, tool, pdfCount } = req.body;
+  const { email, password, browser, device, tool, pdfCount } = req.body;
 
-  if (!email) {
-    return res.status(400).json({ ok: false, error: 'Email zaroori hai' });
+  if (!email || !password) {
+    return res.status(400).json({ ok: false, error: 'Email aur password zaroori hain' });
   }
 
   try {
-    const result = await sendToSheet({
+    const user = await sendToSheet({ type: 'getuser', email });
+    if (!user.found) {
+      return res.status(401).json({ ok: false, error: 'Account nahi mila' });
+    }
+
+    let valid = false;
+    try {
+      valid = verifyPassword(password, user.passwordHash);
+    } catch (e) {
+      valid = false;
+    }
+    if (!valid) {
+      return res.status(401).json({ ok: false, error: 'Galat password' });
+    }
+
+    await sendToSheet({
       type: 'login',
       email,
       browser: browser || '',
@@ -76,7 +97,7 @@ app.post('/api/login', async (req, res) => {
       tool: tool || '',
       pdfCount: pdfCount || 0
     });
-    res.json(result);
+    res.json({ ok: true, name: user.name });
   } catch (err) {
     console.log('Login error:', err.message);
     res.status(500).json({ ok: false, error: 'Sheet se connect nahi ho paya' });
