@@ -10,29 +10,30 @@ app.use(express.json());
 const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL;
 const APPS_SCRIPT_SECRET = process.env.APPS_SCRIPT_SECRET;
 
-// Google Sheet mein data bhejne ka helper
+console.log('Config check -> URL set:', !!APPS_SCRIPT_URL, '| SECRET set:', !!APPS_SCRIPT_SECRET);
+
 async function sendToSheet(payload) {
   const res = await fetch(APPS_SCRIPT_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...payload, secret: APPS_SCRIPT_SECRET })
+    body: JSON.stringify({ ...payload, secret: APPS_SCRIPT_SECRET }),
+    redirect: 'follow'
   });
-  return res.json();
+  const text = await res.text();
+  console.log('Apps Script response:', res.status, text.slice(0, 300));
+  return JSON.parse(text);
 }
 
-// Password ko hash karna (plain text kabhi save nahi hoga)
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = crypto.scryptSync(password, salt, 64).toString('hex');
   return salt + ':' + hash;
 }
 
-// Check ki server chal raha hai
 app.get('/', (req, res) => {
   res.json({ ok: true, message: 'AllInOneCrop backend chal raha hai' });
 });
 
-// Signup: user ko Users sheet mein save karna
 app.post('/api/signup', async (req, res) => {
   const { email, name, phone, password } = req.body;
 
@@ -53,11 +54,11 @@ app.post('/api/signup', async (req, res) => {
     });
     res.json(result);
   } catch (err) {
+    console.log('Signup error:', err.message);
     res.status(500).json({ ok: false, error: 'Sheet se connect nahi ho paya' });
   }
 });
 
-// Login: login ka record Logins sheet mein save karna
 app.post('/api/login', async (req, res) => {
   const { email, browser, device, tool, pdfCount } = req.body;
 
@@ -77,6 +78,7 @@ app.post('/api/login', async (req, res) => {
     });
     res.json(result);
   } catch (err) {
+    console.log('Login error:', err.message);
     res.status(500).json({ ok: false, error: 'Sheet se connect nahi ho paya' });
   }
 });
@@ -85,4 +87,3 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server chal raha hai: http://localhost:${PORT}`);
 });
-console.log('Server file updated');
